@@ -50,8 +50,12 @@ module.exports = function (messageCallback) {
 
     m.text = m.body[0][0][1][1][0]
     m.value = m.body[0][1][1][1][0]
-
-    debug(`Receiving signal ${JSON.stringify(m, null, 2)}`)
+    m.senderName = services[m.sender]
+    // TODO at startup get a list of existing services, and use that to
+    //      populate the services dict. Otherwise it will only be able
+    //      to translate a number (like :1.023) into a name (like
+    //      com.victronenergy.battery.ttyO1) when the services sending the
+    //      signales are started *after* this plugin was started.
 
     return true
   }
