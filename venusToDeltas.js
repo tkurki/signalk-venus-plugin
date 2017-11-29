@@ -1,4 +1,5 @@
 const _ = require('lodash')
+const debug = require('debug')('venusToDeltas')
 
 const mappings = {
   '/Dc/0/Voltage': {
@@ -43,64 +44,62 @@ const mappings = {
   }
 }
 
-module.exports = function (venusMessage) {
-  if (venusMessage.interface != 'com.victronenergy.BusItem' ||
-      venusMessage.member != 'PropertiesChanged')
-    return []
-
-  var mapping = mappings[venusMessage.path]
-  if ( !mapping || !venusMessage.senderName )
-    return []
-
-  var instance = instanceFromSenderName(venusMessage.senderName)
-  var theValue = venusMessage.value
-
-  if ( mapping.conversion )
-    theValue = mapping.conversion(venusMessage)
-
-  if ( !theValue )
-    return []
+module.exports = {
+  dbusPaths: function() {
+    return _.keys(mappings)
+  },
   
-  var thePath;
-  
-  thePath = _.isFunction(mapping.path) ?
-    mapping.path(venusMessage) :
-    mapping.path;
-
-  thePath = thePath.replace(/\$\{instance\}/g, instance);
-  
-  return [
-    {
-      updates: [
-        {
-          source: {
-            label: 'venus',
-            sender: venusMessage.sender,
-            senderName: venusMessage.senderName,
-            venusPath: venusMessage.path
-          },
-          values: [
-            {
-              path: thePath,
-              value: theValue
-            }
-          ],
-          timestamp: (new Date()).toISOString()
-        }
-      ]
+  callback: function (venusMessage) {
+    var mapping = mappings[venusMessage.path]
+    if ( !mapping || !venusMessage.instance ) {
+      debug(`no mapping found for ${venusMessage.path}`)
+      return []
     }
-  ]
+
+    var instance = venusMessage.instance
+    var theValue = venusMessage.value
+
+    if ( mapping.conversion )
+      theValue = mapping.conversion(venusMessage)
+
+    if ( !theValue )
+      return []
+    
+    var thePath;
+    
+    thePath = _.isFunction(mapping.path) ?
+      mapping.path(venusMessage) :
+      mapping.path;
+
+    thePath = thePath.replace(/\$\{instance\}/g, instance);
+    
+    return [
+      {
+        updates: [
+          {
+            source: {
+              label: 'venus',
+              sender: venusMessage.sender,
+              senderName: venusMessage.senderName,
+              venusPath: venusMessage.path
+            },
+            values: [
+              {
+                path: thePath,
+                value: theValue
+              }
+            ],
+            timestamp: (new Date()).toISOString()
+          }
+        ]
+      }
+    ]
+  }
 }
 
 function percentToRatio(msg) {
   return msg.value / 100.0
 }
-
-function instanceFromSenderName(senderName) {
-  //FIXME: hmmm??
-  return 'vedirect' + senderName[senderName.length-1];
-}
-
 
 function batOrCharger(msg, path) {
   var type;

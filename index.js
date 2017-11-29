@@ -32,11 +32,13 @@ module.exports = function (app) {
   */
   plugin.start = function (options) {
     try {
-      stopDbus = createDbusListener(venusMessage => {
-        venusToDeltas(venusMessage).forEach(delta => {
-          app.handleMessage(PLUGIN_ID, delta)
+      stopDbus = createDbusListener(
+        venusToDeltas.dbusPaths(),
+        venusMessage => {
+          venusToDeltas.callback(venusMessage).forEach(delta => {
+            app.handleMessage(PLUGIN_ID, delta)
+          })
         })
-      })
     } catch ( error ) {
       console.error(`error creating dbus listener: ${error}`)
     }
