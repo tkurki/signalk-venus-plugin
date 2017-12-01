@@ -77,7 +77,7 @@ module.exports = function (messageCallback) {
   )
   bus.addMatch("type='signal',member='NameOwnerChanged'", d => {})
 
-  function getDeviceInstanceForService(name) {
+  function getDeviceInstanceForService(owner, name) {
     var service = bus.getService(name);
     bus.invoke({
       path: '/DeviceInstance',
@@ -88,7 +88,7 @@ module.exports = function (messageCallback) {
       if ( err ) {
         console.err(`error geting device instance for ${name} ${err}`)
       } else {
-        services[name].deviceInstance = res[1][0];
+        services[owner].deviceInstance = res[1][0];
       }
     })
   }
