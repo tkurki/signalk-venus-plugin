@@ -52,7 +52,7 @@ module.exports = function (venusMessage) {
   if ( !mapping || !venusMessage.senderName )
     return []
 
-  var instance = instanceFromSenderName(venusMessage.senderName)
+  var instance = venusMessage.instanceName
   var theValue = venusMessage.value
 
   if ( mapping.conversion )
@@ -95,12 +95,6 @@ module.exports = function (venusMessage) {
 function percentToRatio(msg) {
   return msg.value / 100.0
 }
-
-function instanceFromSenderName(senderName) {
-  //FIXME: hmmm??
-  return 'vedirect' + senderName[senderName.length-1];
-}
-
 
 function batOrCharger(msg, path) {
   var type;
