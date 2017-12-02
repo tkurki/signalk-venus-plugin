@@ -16,7 +16,9 @@ module.exports = function (messageCallback) {
   bus.listNames((props, args) => {
     args.forEach(name => {
       if ( name.startsWith('com.victronenergy') ) {
+        debug(`found service: ${name}`)
         bus.getNameOwner(name, (props, args) => {
+          debug(`${name} is sender ${args}`)
           services[args] = { name: name }
           getDeviceInstanceForService(args, name)
         })
@@ -63,20 +65,37 @@ module.exports = function (messageCallback) {
     //   flags: 1,
     //   body: [ [ [Object], [Object] ] ]}
 
-    m.text = m.body[0][0][1][1][0]
-    m.value = m.body[0][1][1][1][0]
-    m.senderName = services[m.sender].name
+    m.body[0].forEach(entry => {
+      if ( entry[0] == 'Text' ) {
+        m.text = entry[1][1][0]
+      } else if ( entry[0] == 'Value' ) {
+        m.value = entry[1][1][0]
+      } else if ( entry[0] == 'Valid' ) {
+        m.valid = entry[1][1][0]
+      }
+    })
+
+    var service = services[m.sender]
+    
+    if ( !service || !service.name || !service.deviceInstance) {
+      debug(`unknown service; ${m.sender}`)
+      return
+    }
+    
+    m.senderName = service.name
 
     if (m.path == '/DeviceInstance') {
       services[m.sender].deviceInstance = m.value
       m.instanceName = m.value
     } else {
-      m.instanceName = services[m.sender].deviceInstance
+      m.instanceName = service.deviceInstance
     }
+
+    //debug(`${m.sender}:${m.senderName}:${m.instanceName}: ${m.path} = ${m.value}`);
+    messageCallback(m)
   }
 
   bus.connection.on('message', signal_receive)
-  bus.connection.on('message', messageCallback)
   bus.addMatch(
     "type='signal',interface='com.victronenergy.BusItem',member='PropertiesChanged'",
     d => {}
@@ -92,7 +111,7 @@ module.exports = function (messageCallback) {
       member: "GetValue"
     }, function(err, res) {
       if ( err ) {
-        console.err(`error geting device instance for ${name} ${err}`)
+        console.log(`error geting device instance for ${name} ${err}`)
       } else {
         services[owner].deviceInstance = res[1][0];
       }
