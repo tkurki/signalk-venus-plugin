@@ -1,11 +1,12 @@
 const dbus = require('dbus-native')
 const debug = require('debug')('vedirect:dbus')
+const _ = require('lodash')
 
 module.exports = function (messageCallback) {
   const bus = process.env.DBUS_SESSION_BUS_ADDRESS ? dbus.sessionBus() : dbus.systemBus()
 
   if (!bus) {
-    throw new Error('Could not connect to the DBus session bus.')
+    throw new Error('Could not connect to the D-Bus')
   }
 
   // name owner (:0132 for example) is the key. In signals this is the sender
@@ -17,12 +18,65 @@ module.exports = function (messageCallback) {
     args.forEach(name => {
       if ( name.startsWith('com.victronenergy') ) {
         bus.getNameOwner(name, (props, args) => {
-          services[args] = { name: name }
-          getDeviceInstanceForService(args, name)
+        initService(args, name)
         })
       }
     })
   })
+
+  function initService(owner, name) {
+    var service = { name: name }
+    services[owner] = service
+
+    debug(`${name} is sender ${owner}`)
+
+    bus.invoke({
+      path: '/DeviceInstance',
+      destination: name,
+      interface: 'com.victronenergy.BusItem',
+      member: "GetValue"
+    }, function(err, res) {
+      if ( err ) {
+        console.error(`error getting device instance for ${name}:\n ${err}`)
+      } else {
+        services[owner].deviceInstance = res[1][0];
+      }
+    })
+
+    bus.invoke({
+      path: '/',
+      destination: name,
+      interface: 'com.victronenergy.BusItem',
+      member: "GetValue"
+    }, function(err, res) {
+      if ( err ) {
+        console.error(`error during GetValue on / for ${name}:\n ${err}`)
+      } else {
+        var data = {};
+        res[1][0].forEach(kp => {
+          data[kp[0]] = kp[1][1][0];
+        })
+
+        service.deviceInstance = data.DeviceInstance;
+
+        if ( !_.isUndefined(data.FluidType) ) {
+          service.fluidType = data.FluidType;
+        }
+
+        var messages = []
+        _.keys(data).forEach(path => {
+          messages.push({
+            path: '/' + path,
+            senderName: service.name,
+            value: data[path],
+            instanceName: service.deviceInstance,
+            fluidType: service.fluidType
+          })
+        })
+        messageCallback(messages)
+      }
+    })
+  }
 
   function signal_receive (m) {
     if (
@@ -43,9 +97,8 @@ module.exports = function (messageCallback) {
     old_owner = m.body[1]
     new_owner = m.body[2]
 
-    if (new_owner != '') {
-      services[new_owner] = { name: name }
-      getDeviceInstanceForService(new_owner, name)
+    if (name.startsWith('com.victronenergy')) {
+      initService(new_owner, name)
     } else {
       delete services[old_owner]
     }
@@ -90,7 +143,7 @@ module.exports = function (messageCallback) {
     }
 
     //debug(`${m.sender}:${m.senderName}:${m.instanceName}: ${m.path} = ${m.value}`);
-    messageCallback(m)
+    messageCallback([m])
   }
 
   bus.connection.on('message', signal_receive)
@@ -99,22 +152,6 @@ module.exports = function (messageCallback) {
     d => {}
   )
   bus.addMatch("type='signal',member='NameOwnerChanged'", d => {})
-
-  function getDeviceInstanceForService(owner, name) {
-    var service = bus.getService(name);
-    bus.invoke({
-      path: '/DeviceInstance',
-      destination: name,
-      interface: 'com.victronenergy.BusItem',
-      member: "GetValue"
-    }, function(err, res) {
-      if ( err ) {
-        console.err(`error geting device instance for ${name} ${err}`)
-      } else {
-        services[owner].deviceInstance = res[1][0];
-      }
-    })
-  }
 
   // TODO return a function to stop the dbus listener
   return () => {}
