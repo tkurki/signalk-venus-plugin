@@ -1,4 +1,5 @@
 const _ = require('lodash')
+const debug = require("debug")("venusToDeltas")
 
 const mappings = {
   '/Dc/0/Voltage': {
@@ -40,14 +41,75 @@ const mappings = {
       return 'notifications.' + makePath(msg, '${instance}.error')
     },
     conversion: convertErrorToNotification
-  }
+  },
+  '/Alarms/Alarm': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.alarm')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/LowVoltage': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.lowVoltage')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/HighVoltage': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.highVoltage')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/LowStarterVoltage': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.lowStarterVoltage')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/HighStarterVoltage': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.highStarterVoltage')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/HighTemperature': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.highTemperature')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/LowSoc': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.lowSoc')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/LowTemperature': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.lowTemperature')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Alarms/MidVoltage': {
+    path: (msg) => {
+      return 'notifications.' + makePath(msg, '${instance}.midVoltage')
+    },
+    conversion: convertAlarmToNotification
+  },
+  '/Capacity': {
+    path: (msg) => {
+      return 'tanks.' + getFluidType(msg.fluidType) + '.${instance}.capacity'
+    },
+  },
+  '/Level': {
+    path: (msg) => {
+      return 'tanks.' + getFluidType(msg.fluidType) + '.${instance}.currentLevel'
+    },
+    conversion: percentToRatio
+  },
 }
 
 module.exports = function (m) {
-  if (m.interface != 'com.victronenergy.BusItem' ||
-      m.member != 'PropertiesChanged')
-    return []
-
   var mapping = mappings[m.path]
   if ( !mapping || !m.senderName )
     return []
@@ -60,6 +122,10 @@ module.exports = function (m) {
 
   if ( !theValue )
     return []
+
+  if ( !makePath(m) ) {
+    return []
+  }
 
   var thePath;
 
@@ -106,10 +172,9 @@ function makePath(msg, path) {
   } else if ( msg.senderName.startsWith('com.victronenergy.inverter') ) {
     type = 'inverters'
   } else {
-    //TODO:  are there others needed here?
-    type = 'chargers'
+    return null
   }
-  return 'electrical.' + type + '.' + path;
+  return 'electrical.' + type + '.' + (path || '');
 }
 
 const stateMap= {
@@ -123,7 +188,7 @@ const stateMap= {
 };
 
 function convertState(msg) {
-  return stateMap[Number(msg.value)]
+  return stateMap[Number(msg.value)] || 'unknown'
 }
 
 
@@ -172,6 +237,43 @@ function convertErrorToNotification(m) {
   return value;
 }
 
+function convertAlarmToNotification(m) {
+  var value;
+  if ( m.value == null || m.value == 0 ) {
+    value = { state: 'normal', message: 'No Alarm' }
+  } else {
+
+    var message
+    if ( _.isString(m.value) ) {
+      message = m.value
+    } else {
+      message = m.path.split('/')[2]
+    }
+    
+    value = {
+      state: 'alarm',
+      message: message,
+      method: [ "visual", "sound" ]
+    }
+  }
+
+  return value;
+}
+
 function ahToCoulomb(m) {
   return Number(m.value) * 3600;
+}
+
+const fluidTypeMapping = {
+  0: "fuel",
+  1: "water",
+  2: "greywater",
+  3: "liveWell",
+  4: "lubrication",
+  5: "blackwater"
+}
+
+function getFluidType(typeId) {
+  debug(`getFluidType ${typeId} ${fluidTypeMapping[typeId]}`)
+  return fluidTypeMapping[typeId] | 'unknown';
 }
