@@ -111,7 +111,7 @@ module.exports = function (messageCallback) {
       member: "GetValue"
     }, function(err, res) {
       if ( err ) {
-        console.log(`error geting device instance for ${name} ${err}`)
+        console.error(`error geting device instance for ${name} ${err}`)
       } else {
         services[owner].deviceInstance = res[1][0];
       }
