@@ -42,12 +42,6 @@ const mappings = {
     },
     conversion: convertErrorToNotification
   },
-  '/Alarms/Alarm': {
-    path: (msg) => {
-      return 'notifications.' + makePath(msg, '${instance}.alarm')
-    },
-    conversion: convertAlarmToNotification
-  },
   '/Alarms/LowVoltage': {
     path: (msg) => {
       return 'notifications.' + makePath(msg, '${instance}.lowVoltage')
@@ -251,7 +245,7 @@ function convertAlarmToNotification(m) {
     }
     
     value = {
-      state: 'alarm',
+      state: m.value == 1 ? 'warning' : 'alarm',
       message: message,
       method: [ "visual", "sound" ]
     }
