@@ -8,7 +8,11 @@ const venusToDeltas = require('./venusToDeltas')
 const mqtt = require('mqtt');
 const _ = require('lodash')
 
+<<<<<<< HEAD
 const supportedMQTTTypes = [ 'battery', 'solarcharger', 'tank', 'vebus' ]; // 'inverter', 'temperature' 
+=======
+const supportedMQTTTypes = [ 'battery', 'solarcharger', 'tank' ]; // 'inverter', 'temperature' 
+>>>>>>> b1fed75... add support to use MQTT to get data  when running eternally
 
 module.exports = function (app) {
   const plugin = {}
@@ -57,8 +61,13 @@ module.exports = function (app) {
   plugin.start = function (options) {
     if ( _.isUndefined(options.sourceType) || options.sourceType == 'dbus' ) {
       try {
+<<<<<<< HEAD
         stopDbus = createDbusListener(venusMessages => {
           venusToDeltas(venusMessages).forEach(delta => {
+=======
+        stopDbus = createDbusListener(venusMessage => {
+          venusToDeltas(venusMessage).forEach(delta => {
+>>>>>>> b1fed75... add support to use MQTT to get data  when running eternally
             app.handleMessage(PLUGIN_ID, delta)
           })
         })
