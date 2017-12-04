@@ -71,7 +71,7 @@ module.exports = function (messageCallback) {
       } else if ( entry[0] == 'Value' ) {
         m.value = entry[1][1][0]
       } else if ( entry[0] == 'Valid' ) {
-        m.valid = entry[1][1][0]
+        //Ignoring Valid because it is depricated
       }
     })
 
