@@ -1,5 +1,7 @@
 const dbus = require('dbus-native')
 const debug = require('debug')('vedirect:dbus')
+const venusToDeltas = require('./venusToDeltas')
+const _ = require('lodash')
 
 module.exports = function (messageCallback) {
   const bus = process.env.DBUS_SESSION_BUS_ADDRESS ? dbus.sessionBus() : dbus.systemBus()
@@ -17,12 +19,65 @@ module.exports = function (messageCallback) {
     args.forEach(name => {
       if ( name.startsWith('com.victronenergy') ) {
         bus.getNameOwner(name, (props, args) => {
-          services[args] = { name: name }
-          getDeviceInstanceForService(args, name)
+          debug(`${name} is sender ${args}`)
+          initService(args, name);
         })
       }
     })
   })
+
+  function initService(owner, name) {
+    var service = { name: name }
+    services[owner] = service
+
+    bus.invoke({
+      path: '/DeviceInstance',
+      destination: name,
+      interface: 'com.victronenergy.BusItem',
+      member: "GetValue"
+    }, function(err, res) {
+      if ( err ) {
+        console.error(`error getting device instance for ${name}:\n ${err}`)
+      } else {
+        services[owner].deviceInstance = res[1][0];
+      }
+    })
+
+    bus.invoke({
+      path: '/',
+      destination: name,
+      interface: 'com.victronenergy.BusItem',
+      member: "GetValue"
+    }, function(err, res) {
+      if ( err ) {
+        console.error(`error during GetValue on / for ${name}:\n ${err}`)
+      } else {
+        var data = {};
+        res[1][0].forEach(kp => {
+          data[kp[0]] = kp[1][1][0];
+        })
+
+        service.deviceInstance = data.DeviceInstance;
+
+        if ( !_.isUndefined(data.FluidType) ) {
+          service.fluidType = data.FluidType;
+        }
+
+        var messages = []
+        _.keys(data).forEach(path => {
+          messages.push({
+            path: '/' + path,
+            senderName: service.name,
+            value: data[path],
+            instanceName: service.deviceInstance,
+            fluidType: service.fluidType
+          })
+        })
+
+        messageCallback(messages)
+      }
+    })
+  }
 
   function signal_receive (m) {
     if (
@@ -90,7 +145,7 @@ module.exports = function (messageCallback) {
     }
 
     //debug(`${m.sender}:${m.senderName}:${m.instanceName}: ${m.path} = ${m.value}`);
-    messageCallback(m)
+    messageCallback([m])
   }
 
   bus.connection.on('message', signal_receive)
