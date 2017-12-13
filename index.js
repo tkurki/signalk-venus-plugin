@@ -15,6 +15,8 @@ module.exports = function (app) {
   var fluidTypes = {}
   var keepAlive
   var onStop = []
+  var lastUpdates = {}
+  var updateTimer
   
   plugin.id = PLUGIN_ID
   plugin.name = PLUGIN_NAME
@@ -86,6 +88,11 @@ module.exports = function (app) {
       clearInterval(keepAlive)
       keepAlive = undefined
     }
+
+    if ( updateTimer ) {
+      clearInterval(updateTimer);
+      updateTimer = undefined;
+    }
   }
 
 
@@ -118,6 +125,18 @@ module.exports = function (app) {
           client.publish(`R/${portalID}/system/0/Serial`)
         }, 50*1000)
       }
+
+      if ( !updateTimer ) {
+        updateTimer = setInterval(function() {
+          _.keys(lastUpdates).forEach(topic => {
+            if ( Date.now() - lastUpdates[topic] > 30*1000 ) {
+              var req = 'R' + topic.substring(1);
+              debug(`getting update for ${req}`)
+              client.publish(req, '');
+            }
+          })
+        }, 30*1000);
+      }
     })
 
     client.on('error', error => {
@@ -133,14 +152,20 @@ module.exports = function (app) {
     });
 
     client.on('message', function (topic, json) {
-      debug(`${topic}: ${json}`)
+      debug(`${topic}: '${json}'`)
 
       var parts = topic.split('/')
       var type = parts[2]
       var instance = parts[3]
       var fluidType
 
-      var message = JSON.parse(json)
+      var message;
+
+      if ( _.isUndefined(json) || json.length == 0 ) {
+        message = {}
+      } else {
+        message = JSON.parse(json)
+      }
 
       if ( type == 'tank' ) {
         if ( parts[parts.length-1] == 'FluidType' ) {
@@ -151,8 +176,8 @@ module.exports = function (app) {
         if ( fluidType == 'unknown' ) {
           return
         } else if ( _.isUndefined(fluidType) ) {
-          client.publish(`R/${parts[1]}/${type}/${instance}/FluidType`)
-          client.publish(`R/${parts[1]}/${type}/${instance}/Capacity`)
+          client.publish(`R/${parts[1]}/${type}/${instance}/FluidType`, '')
+          client.publish(`R/${parts[1]}/${type}/${instance}/Capacity`, '')
           fluidTypes[instance] = 'unknown'
           return
         }
@@ -170,13 +195,21 @@ module.exports = function (app) {
 
       var deltas = venusToDeltas([m])
 
-      deltas.forEach(delta => {
-        //debug(JSON.stringify(delta))
-        app.handleMessage(PLUGIN_ID, delta)
-      })
+      if ( deltas.length > 0 ) {
+        setLastUpdates(topic)
+
+        deltas.forEach(delta => {
+          //debug(JSON.stringify(delta))
+          app.handleMessage(PLUGIN_ID, delta)
+        })
+      }
     })
 
     onStop.push(_ => client.end());
+  }
+
+  function setLastUpdates(topic) {
+    lastUpdates[topic] = Date.now()
   }
 
   return plugin
