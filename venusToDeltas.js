@@ -35,6 +35,12 @@ const mappings = {
   '/Pv/V': {
     path: 'electrical.solar.${instance}.panelVoltage'
   },
+  '/Yield/Power': {
+    path: 'electrical.solar.${instance}.panelPower'
+  },
+  '/History/Daily/0/Yield': {
+    path: 'electrical.solar.${instance}.yieldToday'
+  },
   '/State': {
     path: (msg) => { return makePath(msg, '${instance}.chargingMode') },
     conversion: convertState
@@ -161,6 +167,9 @@ const mappings = {
   },
   '/Ac/Out/L3/V': {
     path: (msg) => { return makePath(msg, '${instance}.acout3.voltage') }
+  },
+  '/ExtraBatteryCurrent': {
+    path: (msg) => { return 'electrical.batteries.${instance}b.current' }
   }
 }
 
@@ -253,7 +262,7 @@ const solarStateMap= {
 };
 
 const vebusStateMap = {
-  0: 'not charging',
+  0: 'off',
   1: 'low power',
   2: 'fault',
   3: 'bulk',
