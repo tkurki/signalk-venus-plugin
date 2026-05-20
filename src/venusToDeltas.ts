@@ -187,6 +187,7 @@ export class VenusToSignalK {
             }
 
             if (Object.keys(meta).length > 0) {
+              //console.log(`sending meta for ${thePath}: ${JSON.stringify(meta)}`)
               const delta: Delta = {
                 updates: [
                   {

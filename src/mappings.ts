@@ -1417,6 +1417,8 @@ const getSwitchSettingsMapping = (app: ServerAPI, state: any) => {
         const parts = m.path.split('/')
         const index = parts[2]
         const setting = parts[4]
+        const prevState = JSON.stringify(state.switchSettings?.[m.senderName]?.[index])
+
         if (state.switchSettings === undefined) {
           state.switchSettings = {}
         }
@@ -1428,6 +1430,12 @@ const getSwitchSettingsMapping = (app: ServerAPI, state: any) => {
         }
 
         state.switchSettings[m.senderName][index][setting] = m.value
+
+        const path = makeSwitchPath(app, state, m, m.switchType !== 2 ? 'switchValue' : 'dimmingLevel')
+
+        if ( path && prevState !== JSON.stringify(state.switchSettings?.[m.senderName]?.[index]) ) {
+          state.knownPaths = state.knownPaths?.filter((item: string) => item !== path);
+        }
 
         return undefined
       }
@@ -1491,6 +1499,7 @@ const getDimmingSwitchMeta = (app: ServerAPI, state: any, m: Message) => {
       meta.stepSize = settings.StepSize
       meta.units = settings.Unit
 
+      meta.type = 'multiple'
       meta.possibleValues = []
       for (
         let i = settings.DimmingMin;
@@ -1501,6 +1510,7 @@ const getDimmingSwitchMeta = (app: ServerAPI, state: any, m: Message) => {
       }
     } else if (type === 4) {
       // stepped switch
+      meta.type = 'multiple'
       meta.possibleValues = [{ title: 'Off', value: 0 }]
       for (let i = 1; i <= settings.DimmingMax; i++) {
         meta.possibleValues.push({ title: i.toString(), value: i })
@@ -1508,6 +1518,7 @@ const getDimmingSwitchMeta = (app: ServerAPI, state: any, m: Message) => {
     } else if (type === 6) {
       // drop down
       if (settings.Labels) {
+        meta.type = 'multiple'
         meta.possibleValues = []
         let i = 0
         settings.Labels.forEach((label: string) => {
