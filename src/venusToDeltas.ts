@@ -429,7 +429,7 @@ const stateMaps: { [key: string]: { [key: number]: string } } = {
     6: 'storage',
     8: 'disabled',
     9: 'float',
-    11: 'power supply',
+    11: 'power supply'
   },
 
   'com.victronenergy.generator': {
